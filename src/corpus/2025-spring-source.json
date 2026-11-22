@@ -1,0 +1,20 @@
+{
+  "id": "a1:2025:spring",
+  "version": "2025-spring-v1",
+  "subject": "A-1",
+  "year": 2025,
+  "period": "春期",
+  "officialTitle": "令和7年度 春期 高度試験（情報処理安全確保支援士ほか）午前Ⅰ",
+  "durationMinutes": 50,
+  "questionCount": 30,
+  "indexUrl": "https://www.ipa.go.jp/shiken/mondai-kaiotu/2025r07.html#haru_sc",
+  "questions": {
+    "url": "https://www.ipa.go.jp/shiken/mondai-kaiotu/nl10bi0000009lh8-att/2025r07h_koudo_am1_qs.pdf",
+    "sha256": "ad34ffa99163fb1ec0ebe97f3f874dcb129fc0925820d53f43a9abf41f5d9f53"
+  },
+  "answers": {
+    "url": "https://www.ipa.go.jp/shiken/mondai-kaiotu/nl10bi0000009lh8-att/2025r07h_koudo_am1_ans.pdf",
+    "sha256": "e1121c3c11c0ffe120ab25e688e39de7d6dcdbfb15aafd95ec6f5bb1e4f61f37",
+    "choices": ["ア", "イ", "ウ", "ウ", "イ", "ウ", "ウ", "ウ", "イ", "ア", "イ", "ウ", "イ", "イ", "ウ", "ア", "イ", "イ", "エ", "イ", "ウ", "ウ", "イ", "エ", "イ", "ウ", "イ", "エ", "ウ", "イ"]
+  }
+}

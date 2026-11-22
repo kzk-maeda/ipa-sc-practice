@@ -1,0 +1,19 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "ipa-sc-practice",
+  "main": "src/index.tsx",
+  "compatibility_date": "2026-04-01",
+  "workers_dev": false,
+  "preview_urls": false,
+  "assets": { "directory": "./public", "binding": "ASSETS", "run_worker_first": true },
+  "env": {
+    "local": {
+      "vars": { "APP_ENV": "local", "AI_MODE": "stub" },
+      "d1_databases": [{
+        "binding": "DB",
+        "database_name": "ipa-sc-practice-local",
+        "database_id": "0ea101a8-0913-4c35-86fb-03c660aee361"
+      }]
+    }
+  }
+}

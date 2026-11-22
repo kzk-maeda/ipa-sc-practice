@@ -155,3 +155,24 @@ vite.config.ts.timestamp-*
 .nx/cache
 .nx/workspace-data
 .nx/migrate-runs
+
+# Wrangler local state and Playwright output
+.wrangler/
+.dev.vars*
+playwright-report/
+test-results/
+
+# Terraform state, plans and environment inputs
+.terraform/
+terraform.tfstate.d/
+*.tfstate
+*.tfstate.*
+*.tfvars
+*.tfvars.json
+*.tfplan
+.terraformrc
+terraform.rc
+wrangler.*.generated.json*
+
+# Python corpus tooling cache
+__pycache__/

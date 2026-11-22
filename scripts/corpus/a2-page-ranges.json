@@ -1,0 +1,19 @@
+{
+  "2017h29a": {"sha256": "316d1872bc95b646394de6fd4188f7c6fc3c2e83692248c6bd7791c35fb12df8", "firstPage": 3, "counts": [3, 2, 3, 2, 3, 2, 2, 3, 2, 2, 1]},
+  "2017h29h": {"sha256": "00a89763cbf869e78a68a45661bdf51d5401b02292e9fbf4d2df01e167fd50e2", "firstPage": 3, "counts": [3, 2, 2, 3, 3, 2, 2, 3, 2, 2, 1]},
+  "2018h30a": {"sha256": "093d320237b586d66578ec5def7fbb3e3cbaf884ba16d7f0295193803f4edd51", "firstPage": 3, "counts": [3, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2]},
+  "2018h30h": {"sha256": "21fe46676c04b5056c9548ddd2fb2c9aba2ff43f581416b5b8a2e9253bebd40b", "firstPage": 3, "counts": [2, 2, 3, 2, 2, 2, 3, 3, 3, 2, 1]},
+  "2019h31h": {"sha256": "3257b85747ca3cfe46194561a69f3cfee38fcad77fd6d4aa7adb4277740e76ea", "firstPage": 3, "counts": [3, 2, 2, 1, 2, 2, 2, 2, 2, 4, 3]},
+  "2019r01a": {"sha256": "524432561593be271d07b3cf192d43222b2d1690c700d435691a4fb6902a7a94", "firstPage": 3, "counts": [2, 3, 2, 2, 2, 2, 2, 2, 3, 1, 1, 2, 1]},
+  "2020r02o": {"sha256": "7bceb3012778c5226619e3bef3adfb978b63506948dd6dbce4915b7f19991cbb", "firstPage": 3, "counts": [2, 2, 2, 2, 2, 1, 2, 1, 2, 1, 2, 3, 2, 1]},
+  "2021r03a": {"sha256": "707bad584b5a3aeb6b347f8f2976577bbaa099df47131424b65ae37cdec38764", "firstPage": 3, "counts": [3, 2, 3, 2, 1, 2, 3, 3, 4, 2]},
+  "2021r03h": {"sha256": "da041ca6adf98b2333d2a5771c66358d3863757dc8c0b91182df71be899a23ff", "firstPage": 3, "counts": [3, 2, 2, 2, 2, 2, 2, 2, 3, 2, 3]},
+  "2022r04a": {"sha256": "c8c15cbe6dc2add37bc454e94d47d92bf67c97f5084ce5747888997b99caad12", "firstPage": 3, "counts": [3, 2, 2, 2, 2, 3, 3, 3, 1, 2, 2]},
+  "2022r04h": {"sha256": "e5fcf8f798d3ead8a147734265adecd748bcc1943d8bcf7001a416a4a393454d", "firstPage": 3, "counts": [2, 3, 2, 1, 2, 2, 2, 2, 3, 3, 2, 1]},
+  "2023r05a": {"sha256": "7a59660367203eabf61ca6c7c54e1ffbe30c825200353cdd74a73504caab8255", "firstPage": 3, "counts": [3, 2, 2, 2, 2, 2, 3, 1, 3, 2, 2, 1]},
+  "2023r05h": {"sha256": "fe6b4322c072945078b49a1a6bc14ed31a7373ac334bc215c60a5aca75f5cb47", "firstPage": 3, "counts": [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 1]},
+  "2024r06a": {"sha256": "ced2927e76fdff470560ca2d067e7615bc93f7575a7e54a75db3ff8ba43b5e1e", "firstPage": 3, "counts": [4, 2, 2, 3, 2, 3, 3, 3, 3]},
+  "2024r06h": {"sha256": "b5ad139e27deff5eff8a2058961d383b6a2b392016e2ef6c774d2963738d1820", "firstPage": 3, "counts": [2, 3, 3, 3, 2, 3, 3, 2, 2, 2]},
+  "2025r07a": {"sha256": "a7e176fea2a87b16ef1ac4491a3314afae301cdce02ced1d7edb151dde5d3e86", "firstPage": 3, "counts": [2, 3, 3, 3, 3, 3, 3, 2, 2, 1]},
+  "2025r07h": {"sha256": "113ab075198b0d08705c0752b74f4ab27fdb4d2da516e8d9c9ffb55549bb0995", "firstPage": 3, "counts": [2, 2, 2, 2, 2, 2, 3, 2, 2, 1, 2, 3]}
+}

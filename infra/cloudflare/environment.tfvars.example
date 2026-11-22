@@ -1,0 +1,7 @@
+account_id       = "0123456789abcdef0123456789abcdef"
+hostname         = "ipa-staging.example.com"
+access_team_name = "my-team"
+allowed_emails   = ["learner@example.com"]
+
+# Enable if you want an R2 bucket for the future corpus import.
+enable_r2 = false
