@@ -36,8 +36,10 @@ async function readPdf(response: Response) {
 booklets.get('/booklets/:form/:version', async c => {
   const exam = getExam(c.req.param('form'), c.req.param('version'))
   if (!exam) return c.notFound()
+  const localPort = c.env.APP_ENV === 'local' ? Number(c.env.LOCAL_BOOKLET_PORT) : 0
+  const url = localPort > 0 ? `http://127.0.0.1:${localPort}/booklets/${exam.id}/${exam.version}` : exam.questions.url
   try {
-    const response = await fetch(exam.questions.url, { redirect: 'manual', signal: AbortSignal.timeout(15_000) })
+    const response = await fetch(url, { redirect: 'manual', signal: AbortSignal.timeout(15_000) })
     const pdf = await readPdf(response)
     if (pdf) {
       const digest = await crypto.subtle.digest('SHA-256', pdf)

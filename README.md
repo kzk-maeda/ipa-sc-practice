@@ -25,6 +25,8 @@ npm run dev
 
 TypeScript と Hono で HTML をサーバー側で描画し、回答は Wrangler のローカル D1（`.wrangler/state/`）に保存します。ローカルでは開発用の固定利用者を使います。Cloudflare アカウントや API キーは不要です。
 
+`npm run dev` は、公式冊子を取得するローカルサービスも起動します。サービスは Node.js で IPA に接続し、必要に応じて `HTTPS_PROXY` と `NO_PROXY` を使います。
+
 ## AIに聞く
 
 採点後の「AIに聞く」で定型質問や自由入力を送れます。ローカルの既定設定は、用意済みの解説を返すスタブです。実際のAIをローカルで使う場合は、`.dev.vars.local` に `OPENAI_API_KEY` を設定し、`npm run setup` の後に次を実行します。
