@@ -1,11 +1,11 @@
 import { createRemoteJWKSet, jwtVerify } from 'jose'
+import type { AiBindings } from '../ai/config'
 
 export type AppEnv = {
-  Bindings: {
+  Bindings: AiBindings & {
     DB: D1Database
     ASSETS: Pick<Fetcher, 'fetch'>
     APP_ENV?: string
-    AI_MODE?: string
     APP_HOSTNAME?: string
     CF_ACCESS_ISSUER?: string
     CF_ACCESS_AUD?: string

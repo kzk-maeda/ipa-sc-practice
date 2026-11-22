@@ -45,6 +45,7 @@ run "bind_worker_to_the_environment" {
       cloudflare_zero_trust_access_application.study.policies[0].id == cloudflare_zero_trust_access_policy.learners.id &&
       cloudflare_zero_trust_access_policy.learners.decision == "allow" &&
       toset([for rule in cloudflare_zero_trust_access_policy.learners.include : rule.email.email]) == var.allowed_emails &&
+      !contains(keys(output.wrangler_config.vars), "AI_MODE") &&
       output.wrangler_config.vars.APP_ENV == "cloudflare" &&
       output.wrangler_config.vars.APP_HOSTNAME == var.hostname &&
       output.wrangler_config.vars.CF_ACCESS_ISSUER == "https://my-team.cloudflareaccess.com" &&
@@ -80,4 +81,29 @@ run "reject_empty_access_allowlist" {
   }
 
   expect_failures = [var.allowed_emails]
+}
+
+
+run "enable_openai_settings_without_secret" {
+  command = plan
+
+  variables {
+    ai = {
+      model                  = "gpt-4.1-mini"
+      input_usd_per_million  = 0.4
+      output_usd_per_million = 1.6
+    }
+  }
+
+  assert {
+    condition = (
+      output.wrangler_config.vars.AI_MODE == "openai" &&
+      output.wrangler_config.vars.OPENAI_MODEL == "gpt-4.1-mini" &&
+      output.wrangler_config.vars.AI_DAILY_LIMIT == "20" &&
+      output.wrangler_config.vars.AI_MONTHLY_BUDGET_USD == "5" &&
+      length(output.wrangler_config.triggers.crons) == 1 &&
+      !contains(keys(output.wrangler_config.vars), "OPENAI_API_KEY")
+    )
+    error_message = "AI settings must use the selected model and quota, with a separate secret and scheduled cleanup."
+  }
 }

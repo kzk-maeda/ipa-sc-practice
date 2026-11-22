@@ -176,3 +176,6 @@ wrangler.*.generated.json*
 
 # Python corpus tooling cache
 __pycache__/
+
+# Generated PDF.js assets
+/public/vendor/pdfjs/

@@ -57,3 +57,25 @@ variable "enable_r2" {
   default     = false
   nullable    = false
 }
+
+variable "ai" {
+  description = "Responses API settings. Leave null to disable AI. Set the API key separately as a Worker secret."
+  type = object({
+    model                  = string
+    input_usd_per_million  = number
+    output_usd_per_million = number
+    daily_limit            = optional(number, 20)
+    monthly_budget_usd     = optional(number, 5)
+  })
+  default = null
+
+  validation {
+    condition = var.ai == null ? true : (
+      length(trimspace(var.ai.model)) > 0 &&
+      var.ai.daily_limit >= 1 && floor(var.ai.daily_limit) == var.ai.daily_limit &&
+      var.ai.input_usd_per_million > 0 && var.ai.output_usd_per_million > 0 &&
+      var.ai.monthly_budget_usd >= 0.000001
+    )
+    error_message = "AI settings require a model, positive prices and budget, and a positive whole-number daily limit."
+  }
+}
