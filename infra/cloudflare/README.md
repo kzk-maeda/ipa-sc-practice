@@ -49,6 +49,17 @@ npx wrangler deploy --config wrangler.staging.generated.json
 
 設定生成は指定されたTerraformワークスペースの出力を読みます。本番用は `production` ワークスペースと `production.tfvars` を使い、生成コマンドの引数とWrangler設定のファイル名も `production` に変更します。配備後、専用ホストで許可済みアカウントの演習と未認証時のブロックを確認します。
 
+## OpenAI連携を有効にする
+
+対象環境の `*.tfvars` に、例の `ai` ブロックを設定します。料金設定には選んだモデルの通常入力・出力単価（100万トークンあたりの USD）を入れてください。Terraformを適用し、Wrangler設定を再生成してD1のマイグレーションを適用したあと、同じ環境のWorkerにAPIキーを登録して配備します。
+
+```sh
+npx wrangler secret put OPENAI_API_KEY --config wrangler.staging.generated.json
+npx wrangler deploy --config wrangler.staging.generated.json
+```
+
+キーは `*.tfvars` やGitに入れず、環境ごとのWorkerシークレットを使います。配備済みWorkerで会話の30日削除を毎日3時（日本時間）に実行します。利用枠はD1に記録し、先に月額の概算を予約します。APIがトークン実績を返した場合は実績で精算し、取得できない場合は予約額を記録します。
+
 ## リソースを作らずに検証する
 
 ```sh

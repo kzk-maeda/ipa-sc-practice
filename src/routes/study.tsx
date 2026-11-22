@@ -1,4 +1,9 @@
 import { Hono, type Context } from 'hono'
+import { streamSSE } from 'hono/streaming'
+import { aiMessages, completeQuestion, type AiPanel, type AiProblem, type AiReply } from '../ai/ask'
+import { openAIConfig, questionText } from '../ai/config'
+import { buildInput, estimatedCost, promptVersion } from '../ai/responses'
+import { clearThread, hashQuestion, previousRequest, recentTurns, reserveRequest, type Thread } from '../ai/store'
 import type { AppEnv } from '../auth/access'
 import { choices, defaultExam, exams, getExam, getItem, parseSubject, type Choice } from '../corpus/catalog'
 import { stubReply, type StubPrompt } from '../ai/stub'
@@ -56,7 +61,7 @@ study.get('/', async c => {
   const sessions = await latestSessions(c.env.DB, c.get('userId'))
   const session = sessions.find(candidate => getExam(candidate.form_id, candidate.corpus_version))
   if (session) return c.redirect(`/sessions/${session.id}`)
-  return c.html(<StudyPage exam={defaultExam} item={defaultExam.items[0]} attempts={[]} />)
+  return c.html(<StudyPage exam={defaultExam} item={defaultExam.items[0]} attempts={[]} showPdf={c.req.query('booklet') === '1'} />)
 })
 
 study.get('/catalog', async c => {
@@ -102,9 +107,17 @@ study.get('/sessions/:id/items/:position', async c => {
   const attempts = await sessionAttempts(c.env.DB, c.get('userId'), id)
   const answered = attempts.some(attempt => attempt.position === item.number)
   const marked = answered && await isMarked(c.env.DB, c.get('userId'), item.group)
-  const aiEnabled = item.format === 'text' && c.env.AI_MODE === 'stub'
-  const hint = aiEnabled && answered ? parsePrompt(c.req.query('hint')) : undefined
-  return c.html(<StudyPage {...{ exam, item, session, attempts, marked, hint, aiEnabled }} />)
+  let ai: AiPanel | undefined
+  if (answered && item.format === 'text') {
+    if (c.env.AI_MODE === 'stub') ai = { mode: 'stub', hint: parsePrompt(c.req.query('hint')) }
+    if (openAIConfig(c.env)) {
+      const thread = { userId: c.get('userId'), sessionId: id, position: item.number }
+      const problem = c.req.query('ai_error')
+      const notice = problem && Object.hasOwn(aiMessages, problem) ? aiMessages[problem as AiProblem] : undefined
+      ai = { mode: 'openai', turns: await recentTurns(c.env.DB, thread, Date.now()).catch(() => []), notice }
+    }
+  }
+  return c.html(<StudyPage {...{ exam, item, session, attempts, marked, ai }} showPdf={c.req.query('booklet') === '1'} />)
 })
 
 study.post('/sessions/:id/items/:position/answer', async c => {
@@ -134,18 +147,106 @@ study.post('/sessions/:id/items/:position/review', async c => {
   return c.redirect(`${itemUrl(id, item.number)}#result`, 303)
 })
 
+function aiError(c: Context<AppEnv>, url: string, problem: AiProblem, status: 400 | 409 | 429 | 502 | 503) {
+  if (jsonRequested(c) || c.req.header('Accept')?.includes('text/event-stream')) {
+    return c.json({ error: aiMessages[problem], code: problem }, status)
+  }
+  return c.redirect(`${url}?ai_error=${problem}#ai`, 303)
+}
+
+function aiSuccess(c: Context<AppEnv>, url: string, reply: AiReply) {
+  return jsonRequested(c) ? c.json({ mode: 'openai', ...reply }) : c.redirect(`${url}#ai`, 303)
+}
+
+function privateAiStream(c: Context<AppEnv>, callback: Parameters<typeof streamSSE>[1]) {
+  const response = streamSSE(c, callback)
+  response.headers.set('Cache-Control', 'private, no-store')
+  return response
+}
+
+async function aiTarget(c: Context<AppEnv>, id: string, position: number) {
+  const userId = c.get('userId')
+  const saved = await findSession(c.env.DB, userId, id)
+  const item = saved && getItem(saved.exam, position)
+  if (!saved || item?.format !== 'text') return null
+  const attempts = await sessionAttempts(c.env.DB, userId, id)
+  const attempt = attempts.find(candidate => candidate.position === position)
+  const thread: Thread = { userId, sessionId: id, position }
+  return { ...saved, item, attempt, thread, url: itemUrl(id, position) }
+}
+
 study.post('/sessions/:id/items/:position/ai', async c => {
-  const { id, position } = c.req.param()
-  if (c.env.AI_MODE !== 'stub') return c.notFound()
-  const saved = await findSession(c.env.DB, c.get('userId'), id)
-  const item = saved && getItem(saved.exam, Number(position))
-  if (!item || item.format !== 'text') return c.notFound()
-  const attempts = await sessionAttempts(c.env.DB, c.get('userId'), id)
-  if (!attempts.some(attempt => attempt.position === item.number)) return pageError(c, 403, '回答を確定してから質問できます。')
-  const prompt = parsePrompt((await body(c)).prompt)
-  if (!prompt) return pageError(c, 400, '質問を選び直してください。')
-  if (jsonRequested(c)) return c.json({ mode: 'stub', text: stubReply(item, prompt) })
-  return c.redirect(`${itemUrl(id, item.number)}?hint=${prompt}#ai`, 303)
+  if (c.env.AI_MODE !== 'stub' && c.env.AI_MODE !== 'openai') return c.notFound()
+  const target = await aiTarget(c, c.req.param('id'), Number(c.req.param('position')))
+  if (!target) return c.notFound()
+  const { exam, item, url, thread, attempt } = target
+  if (!attempt) return pageError(c, 403, '回答を確定してから質問できます。')
+  const data = await body(c)
+  if (c.env.AI_MODE === 'stub') {
+    const prompt = parsePrompt(data.prompt)
+    if (!prompt) return pageError(c, 400, '質問を選び直してください。')
+    if (jsonRequested(c)) return c.json({ mode: 'stub', text: stubReply(item, prompt) })
+    return c.redirect(`${url}?hint=${prompt}#ai`, 303)
+  }
+
+  const config = openAIConfig(c.env)
+  if (!config) return aiError(c, url, 'config', 503)
+  const question = questionText(data)
+  const requestId = data.clientRequestId
+  if (!question || typeof requestId !== 'string' || !uuid.test(requestId)) return aiError(c, url, 'invalid', 400)
+  const db = c.env.DB
+  const useStream = c.req.header('Accept')?.includes('text/event-stream')
+  const hash = await hashQuestion(thread, question)
+  const replay = (previous: NonNullable<Awaited<ReturnType<typeof previousRequest>>>) => {
+    if (previous.payload_hash !== hash) return aiError(c, url, 'conflict', 409)
+    if (previous.state === 'pending' && previous.lease_until > Date.now()) return aiError(c, url, 'pending', 409)
+    if (!previous.question || !previous.answer) return aiError(c, url, 'gone', 409)
+    const reply = { question: previous.question, answer: previous.answer }
+    return useStream ? privateAiStream(c, stream => stream.writeSSE({ event: 'done', data: JSON.stringify(reply) })) :
+      aiSuccess(c, url, reply)
+  }
+
+  let input: string
+  let reserve: number
+  try {
+    const previous = await previousRequest(db, thread.userId, requestId, Date.now())
+    if (previous) return replay(previous)
+    input = buildInput(exam, item, attempt.choice, await recentTurns(db, thread, Date.now()), question)
+    reserve = estimatedCost(config, input)
+    const reserved = await reserveRequest(db, { ...thread, id: requestId, hash, now: Date.now(), reserve, promptVersion }, config)
+    if (!reserved) {
+      const raced = await previousRequest(db, thread.userId, requestId, Date.now())
+      return raced ? replay(raced) : aiError(c, url, 'quota', 429)
+    }
+  } catch {
+    return aiError(c, url, 'storage', 503)
+  }
+
+  if (!useStream) {
+    const result = await completeQuestion(db, thread, requestId, question, input, reserve, config, c.req.raw.signal)
+    return 'reply' in result ? aiSuccess(c, url, result.reply) :
+      aiError(c, url, result.problem, result.problem === 'provider' ? 502 : 503)
+  }
+
+  return privateAiStream(c, async stream => {
+    const controller = new AbortController()
+    stream.onAbort(() => controller.abort())
+    const signal = AbortSignal.any([c.req.raw.signal, controller.signal])
+    const result = await completeQuestion(db, thread, requestId, question, input, reserve, config, signal,
+      text => stream.writeSSE({ event: 'delta', data: JSON.stringify({ text }) }))
+    if (!stream.aborted) await stream.writeSSE('reply' in result
+      ? { event: 'done', data: JSON.stringify(result.reply) }
+      : { event: 'error', data: JSON.stringify({ code: result.problem, error: aiMessages[result.problem] }) })
+  })
+})
+
+study.post('/sessions/:id/items/:position/ai/clear', async c => {
+  if (!openAIConfig(c.env)) return c.notFound()
+  const target = await aiTarget(c, c.req.param('id'), Number(c.req.param('position')))
+  if (!target) return c.notFound()
+  if (!target.attempt) return pageError(c, 403, '回答を確定してから会話を削除できます。')
+  if (!await clearThread(c.env.DB, target.thread, Date.now())) return aiError(c, target.url, 'pending', 409)
+  return jsonRequested(c) ? c.json({ deleted: true }) : c.redirect(`${target.url}#ai`, 303)
 })
 
 study.get('/sessions/:id/summary', async c => {

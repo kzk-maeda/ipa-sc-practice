@@ -110,6 +110,7 @@ test('D1 protects fixed answers from stale writes and retains one latest sample 
 })
 
 test('the year catalog starts an older official booklet, grades it, and preserves its own resume and history', async ({ page }) => {
+  await page.route('**/booklets/**', route => route.fulfill({ status: 204 }))
   await page.goto('/catalog')
   await page.getByLabel('年度').selectOption('2011')
   await page.getByRole('button', { name: '表示', exact: true }).click()
@@ -117,8 +118,10 @@ test('the year catalog starts an older official booklet, grades it, and preserve
   const special = page.locator('.catalog-row').filter({ has: page.getByRole('heading', { name: '2011年 特別' }) })
   await special.getByRole('button', { name: '演習を始める' }).click()
   await expect(page.getByRole('heading', { name: '2011年 特別' })).toBeVisible()
-  const booklet = page.getByRole('link', { name: /公式問題冊子を開く/ })
+  const booklet = page.getByRole('link', { name: 'IPAの原本を開く' })
   await expect(booklet).toHaveAttribute('href', /2011h23tokubetsu_koudo_am1_qs\.pdf#page=3$/)
+  await expect(booklet).not.toHaveAttribute('target', '_blank')
+  await expect(page.locator('#question-booklet iframe')).toHaveAttribute('src', /\/booklets\/[^#]+#page=3&view=FitH$/)
   await expect(page.getByText('公式正答', { exact: false })).toHaveCount(0)
   const firstQuestion = page.url()
   await page.getByRole('radio', { name: 'エ', exact: true }).check()
@@ -205,6 +208,7 @@ test('A-2 supports a complete 25-question session and keeps progress separate fr
 })
 
 test('the A-2 catalog opens and resumes the official 2020 October booklet', async ({ page }) => {
+  await page.route('**/booklets/**', route => route.fulfill({ status: 204 }))
   await page.goto('/catalog?subject=a2&year=2009')
   await expect(page.getByLabel('年度')).toHaveValue('2025')
   await page.getByLabel('年度').selectOption('2020')
@@ -212,7 +216,7 @@ test('the A-2 catalog opens and resumes the official 2020 October booklet', asyn
   await expect(page.getByRole('heading', { name: '2020年 10月' })).toBeVisible()
   await expect(page.locator('.catalog-row')).toHaveCount(1)
   await page.getByRole('button', { name: '演習を始める' }).click()
-  const booklet = page.getByRole('link', { name: /公式問題冊子を開く/ })
+  const booklet = page.getByRole('link', { name: 'IPAの原本を開く' })
   await expect(booklet).toHaveAttribute('href', /2020r02o_sc_am2_qs\.pdf#page=3$/)
   const saved = page.url()
   const { answers } = a2Sources.find(exam => exam.id === 'a2:2020:october')!
@@ -226,4 +230,59 @@ test('the A-2 catalog opens and resumes the official 2020 October booklet', asyn
   await expect(page).toHaveURL(saved.replace(/1$/, '2'))
   await page.getByRole('link', { name: '問25、未回答' }).click()
   await expect(booklet).toHaveAttribute('href', /2020r02o_sc_am2_qs\.pdf#page=16$/)
+})
+
+test.describe('inline problem PDF', () => {
+  test.use({ javaScriptEnabled: true, viewport: { width: 1200, height: 900 }, isMobile: false, hasTouch: false })
+
+  test('shows the selected page beside the choices and stacks them on a narrow screen', async ({ page, context }) => {
+    const drawing = '0.3 g 40 40 120 150 re f\n'
+    const sheet = '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 400 500] /Contents 6 0 R >>'
+    const objects = [
+      '<< /Type /Catalog /Pages 2 0 R >>',
+      '<< /Type /Pages /Kids [3 0 R 4 0 R 5 0 R] /Count 3 >>',
+      sheet, sheet, sheet,
+      `<< /Length ${drawing.length} >>\nstream\n${drawing}endstream`,
+    ]
+    let pdf = '%PDF-1.4\n'
+    const offsets = objects.map((object, index) => {
+      const offset = pdf.length
+      pdf += `${index + 1} 0 obj\n${object}\nendobj\n`
+      return String(offset).padStart(10, '0')
+    })
+    const xref = pdf.length
+    pdf += `xref\n0 7\n0000000000 65535 f \n${offsets.map(offset => `${offset} 00000 n \n`).join('')}trailer\n<< /Size 7 /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF\n`
+    await page.route('**/booklets/**', route => route.fulfill({ contentType: 'application/pdf', body: pdf }))
+
+    await page.goto('/catalog?subject=a2&year=2017')
+    await page.getByRole('button', { name: '演習を始める' }).first().click()
+    const preview = page.getByRole('region', { name: '公式問題冊子' })
+    const choices = page.getByRole('group', { name: '選択肢' })
+    await expect(preview.getByRole('img', { name: '公式問題冊子 PDFの3ページ目' })).toBeVisible()
+    await expect(preview.getByText('3 / 3ページ')).toBeVisible()
+    const desktopPreview = (await preview.boundingBox())!
+    expect(desktopPreview.x + desktopPreview.width).toBeLessThan((await choices.boundingBox())!.x)
+    await page.getByRole('radio', { name: 'ア', exact: true }).check()
+    await preview.getByRole('button', { name: '前のページ' }).click()
+    await expect(preview.getByRole('img', { name: '公式問題冊子 PDFの2ページ目' })).toBeVisible()
+    await expect(page.getByRole('radio', { name: 'ア', exact: true })).toBeChecked()
+    await preview.getByRole('button', { name: '次のページ' }).click()
+    await expect(preview.getByText('3 / 3ページ')).toBeVisible()
+    expect(context.pages()).toHaveLength(1)
+
+    await page.setViewportSize({ width: 390, height: 844 })
+    const mobilePreview = (await preview.boundingBox())!
+    expect(mobilePreview.y + mobilePreview.height).toBeLessThan((await choices.boundingBox())!.y)
+    await page.getByRole('button', { name: '回答する' }).click()
+    await expect(page.locator('#result-title')).toBeVisible()
+
+    await page.goto('/catalog?year=2025')
+    await page.locator('.catalog-row').first().getByRole('button', { name: /始める/ }).click()
+    await page.getByRole('link', { name: /原題 PDF（/ }).click()
+    await expect(preview).toBeVisible()
+    await expect(page.locator('#question-title')).toBeVisible()
+    expect(context.pages()).toHaveLength(1)
+    await page.getByRole('link', { name: '原題 PDFを閉じる' }).click()
+    await expect(preview).toHaveCount(0)
+  })
 })

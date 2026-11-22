@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import { exportJWK, generateKeyPair, SignJWT, type JWTPayload } from 'jose'
 import type { AppEnv } from '../src/auth/access'
-import app from '../src/index'
+import { app } from '../src/index'
 
 test('the cloud Worker checks Access before serving assets or selecting a learner', async t => {
   const hostname = 'practice-staging.example.com'

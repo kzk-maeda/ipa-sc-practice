@@ -1,5 +1,6 @@
 import { categories, choices, subjects, type ExamForm, type Item, type TextItem } from '../corpus/catalog'
-import { stubReply, type StubPrompt } from '../ai/stub'
+import type { AiPanel } from '../ai/ask'
+import { AiSection } from './ai'
 import type { Attempt, Session } from '../study/store'
 import { Layout } from './layout'
 
@@ -45,12 +46,13 @@ function SessionProgress({ exam, item, session, attempts }: { exam: ExamForm; it
   </aside>
 }
 
-function Source({ exam, item, answered }: { exam: ExamForm; item: Item; answered: boolean }) {
+function Source({ exam, item, answered, url, showPdf }: { exam: ExamForm; item: Item; answered: boolean; url: string; showPdf: boolean }) {
   return <footer class="source">
     <p>出典　{exam.officialTitle} 問{item.number}（IPA）</p>
     {item.format === 'text' && <p>問題文と選択肢は、記号・改行などの表記を整えて掲載しています。</p>}
     <div class="source-links">
-      {item.format === 'text' && <a href={`${exam.questions.url}#page=${item.page}`} target="_blank" rel="noopener noreferrer">原題 PDF（{item.page}ページ）</a>}
+      {item.format === 'text' && (showPdf ? <a href={url}>原題 PDFを閉じる</a> :
+        <a href={`${url}?booklet=1#question-booklet`}>原題 PDF（{item.page}ページ）</a>)}
       {answered && <a href={exam.answers.url} target="_blank" rel="noopener noreferrer">公式解答 PDF</a>}
     </div>
   </footer>
@@ -95,15 +97,14 @@ function AnswerForm({ exam, item, session }: { exam: ExamForm; item: Item; sessi
   </form>
 }
 
-function AnswerResult({ exam, item, attempt, session, attempts, marked, hint, aiEnabled }: {
+function AnswerResult({ exam, item, attempt, session, attempts, marked, ai }: {
   exam: ExamForm
   item: Item
   attempt: Attempt
   session: Session
   attempts: Attempt[]
   marked: boolean
-  hint?: StubPrompt
-  aiEnabled: boolean
+  ai?: AiPanel
 }) {
   const url = itemUrl(session.id, item.number)
   const unresolved = nextUnanswered(exam, attempts)
@@ -135,50 +136,67 @@ function AnswerResult({ exam, item, attempt, session, attempts, marked, hint, ai
           : <a class="button" href={`/sessions/${session.id}/summary`}>演習結果を見る</a>}
       </div>
     </section>
-    {aiEnabled && item.format === 'text' && <section id="ai" class="ai-section" aria-labelledby="ai-title">
-      <div class="ai-heading"><h3 id="ai-title">AIに聞く</h3><span>ローカルスタブ</span></div>
-      <form method="post" action={`${url}/ai`} class="ai-prompts">
-        <button class="secondary" type="submit" name="prompt" value="reason">なぜこの選択肢？</button>
-        <button class="secondary" type="submit" name="prompt" value="approach">解き方の考え方</button>
-      </form>
-      {hint && <p class="ai-answer">{stubReply(item, hint)}</p>}
-    </section>}
+    {ai && item.format === 'text' && <AiSection {...{ ai, item, url }} />}
   </>
 }
 
-export function StudyPage({ exam, item, session, attempts, marked = false, hint, aiEnabled = false }: {
+function BookletPreview({ exam, item }: { exam: ExamForm; item: Item }) {
+  const localPdf = `/booklets/${exam.id}/${exam.version}`
+  const fragment = `#page=${item.page}&view=FitH`
+  return <section id="question-booklet" class="panel booklet-preview" data-booklet={localPdf} data-page={item.page} aria-label="公式問題冊子">
+    <div class="booklet-header">
+      <h2>公式問題冊子</h2>
+      <a href={`${exam.questions.url}#page=${item.page}`}>IPAの原本を開く</a>
+    </div>
+    <div class="booklet-controls inline-actions" data-pdf-controls hidden>
+      <button class="secondary" type="button" data-previous disabled>前のページ</button>
+      <span data-page-label></span>
+      <button class="secondary" type="button" data-next disabled>次のページ</button>
+    </div>
+    <div class="booklet-sheet">
+      <p role="status" class="booklet-status"></p>
+      <canvas role="img" hidden></canvas>
+      <noscript><iframe title={`公式問題冊子 PDFの${item.page}ページ目`} src={`${localPdf}${fragment}`}></iframe></noscript>
+    </div>
+    <script type="module" src="/booklet.js"></script>
+  </section>
+}
+
+export function StudyPage({ exam, item, session, attempts, marked = false, ai, showPdf = false }: {
   exam: ExamForm
   item: Item
   session?: Session
   attempts: Attempt[]
   marked?: boolean
-  hint?: StubPrompt
-  aiEnabled?: boolean
+  ai?: AiPanel
+  showPdf?: boolean
 }) {
   const attempt = attempts.find(answer => answer.position === item.number)
   const heading = `${exam.year}年 ${exam.period}`
   const { label, slug, examName } = subjects[exam.subject]
+  const withPreview = item.format === 'booklet' || showPdf
+  const url = session ? itemUrl(session.id, item.number) : '/'
+  const question = <article class="panel question" aria-labelledby="question-title">
+    <header class="question-header">
+      <h2 id="question-title"><span>問</span> {String(item.number).padStart(2, '0')}<small> / {exam.questionCount}</small></h2>
+      <span class="category">{item.format === 'text' ? categories[item.category].label : '公式冊子で演習'}</span>
+    </header>
+    <div class="question-inner">
+      {item.format === 'text' && !showPdf ? <QuestionBody exam={exam} item={item} /> :
+        <p>問題冊子で問{item.number}を読み、ア〜エを選んでください。</p>}
+      {attempt && session ? <AnswerResult {...{ exam, item, attempt, session, attempts, marked, ai }} />
+        : <AnswerForm exam={exam} item={item} session={session} />}
+    </div>
+    <Source exam={exam} item={item} answered={Boolean(attempt)} url={url} showPdf={showPdf} />
+  </article>
   return <Layout title={`問${item.number} | ${heading} ${label}`} active="study" subject={exam.subject}>
     <header class="page-heading">
       <div><p class="eyebrow">{exam.subject} <span>/</span> {label}</p><h1>{heading}</h1><p>{examName} ・ 全{exam.questionCount}問</p></div>
       <a class="button secondary" href={`/catalog?subject=${slug}&year=${exam.year}`}>年度・期を選ぶ</a>
     </header>
-    <div class="study-layout">
-      <article class="panel question" aria-labelledby="question-title">
-        <header class="question-header">
-          <h2 id="question-title"><span>問</span> {String(item.number).padStart(2, '0')}<small> / {exam.questionCount}</small></h2>
-          <span class="category">{item.format === 'text' ? categories[item.category].label : '公式冊子で演習'}</span>
-        </header>
-        <div class="question-inner">
-          {item.format === 'text' ? <QuestionBody exam={exam} item={item} /> : <section class="booklet-prompt" aria-label="公式問題冊子">
-            <p>IPAの問題冊子（PDFの{item.page}ページ目）で問{item.number}を読み、ア〜エの記号を選んでください。</p>
-            <a class="button secondary" href={`${exam.questions.url}#page=${item.page}`} target="_blank" rel="noopener noreferrer">公式問題冊子を開く（PDF・別タブ）</a>
-          </section>}
-          {attempt && session ? <AnswerResult {...{ exam, item, attempt, session, attempts, marked, hint, aiEnabled }} />
-            : <AnswerForm exam={exam} item={item} session={session} />}
-        </div>
-        <Source exam={exam} item={item} answered={Boolean(attempt)} />
-      </article>
+    <div class={withPreview ? 'study-layout booklet-layout' : 'study-layout'}>
+      {withPreview && <BookletPreview exam={exam} item={item} />}
+      {question}
       <SessionProgress {...{ exam, item, session, attempts }} />
     </div>
   </Layout>

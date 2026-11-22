@@ -5,3 +5,12 @@ allowed_emails   = ["learner@example.com"]
 
 # Enable if you want an R2 bucket for the future corpus import.
 enable_r2 = false
+
+# Uncomment to enable AI explanations after setting OPENAI_API_KEY as a Worker secret.
+# ai = {
+#   model                  = "gpt-4.1-mini"
+#   input_usd_per_million  = 0.4
+#   output_usd_per_million = 1.6
+#   monthly_budget_usd     = 5
+#   daily_limit            = 20
+# }
