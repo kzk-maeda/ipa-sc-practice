@@ -6,6 +6,7 @@ export type AppEnv = {
     DB: D1Database
     ASSETS: Pick<Fetcher, 'fetch'>
     APP_ENV?: string
+    LOCAL_BOOKLET_PORT?: string
     APP_HOSTNAME?: string
     CF_ACCESS_ISSUER?: string
     CF_ACCESS_AUD?: string
